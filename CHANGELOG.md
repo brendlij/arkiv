@@ -4,10 +4,19 @@ All notable changes to Arkiv are documented here. This project follows [Semantic
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-14
+
 ### Added
 
 - Added GitHub CI, release-PR validation, tag-driven multi-architecture GHCR publishing, and automated GitHub Releases.
+- Added automated semantic-version and changelog preparation for release pull requests.
+
+### Changed
+
 - Changed the supplied Compose deployment to pull `ghcr.io/brendlij/arkiv` instead of building locally on the NAS.
+- Standardized native, container, health-check, and development API ports on `8090`.
+- Updated the application, README, and favicon to use the current Arkiv brand assets.
+- Removed the prefilled administrator username from the login form.
 
 ## [0.1.0] - 2026-09-14
 

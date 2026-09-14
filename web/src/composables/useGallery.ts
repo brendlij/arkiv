@@ -29,7 +29,7 @@ export function useGallery() {
   ];
   const session = ref(false),
     initializing = ref(true),
-    username = ref("admin"),
+    username = ref(""),
     password = ref(""),
     loginBusy = ref(false),
     proxy = ref(false);

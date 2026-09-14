@@ -27,6 +27,6 @@ RUN ln -s /usr/local/bin/arkiv /usr/local/bin/gallery
 USER 10001:10001
 # Application defaults live in internal/config.
 ENV VIPS_CONCURRENCY=1
-EXPOSE 8080
+EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD ["arkiv", "healthcheck"]
 ENTRYPOINT ["arkiv"]

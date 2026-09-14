@@ -143,7 +143,7 @@ func env(k, d string) string {
 }
 
 // HTTPPort is also used by the standalone container health check.
-func HTTPPort() string { return env("ARKIV_PORT", "8080") }
+func HTTPPort() string { return env("ARKIV_PORT", "8090") }
 
 func rejectSymlinkParents(path string) error {
 	for p := filepath.Clean(path); ; p = filepath.Dir(p) {

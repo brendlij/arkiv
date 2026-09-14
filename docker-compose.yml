@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     init: true
     ports:
-      - "${ARKIV_HOST_PORT:-8090}:8080"
+      - "${ARKIV_HOST_PORT:-8090}:8090"
     environment:
       TZ: ${TZ:-Europe/Berlin}
       ARKIV_USERNAME: ${ARKIV_USERNAME:-admin}
@@ -13,7 +13,7 @@ services:
       ARKIV_DATABASE: /data/gallery.db
       ARKIV_CACHE: /cache
       ARKIV_LIBRARY: /photos
-      ARKIV_PORT: "8080"
+      ARKIV_PORT: "8090"
       ARKIV_SCAN_ON_START: ${ARKIV_SCAN_ON_START:-true}
       ARKIV_SCAN_INTERVAL: ${ARKIV_SCAN_INTERVAL:-30m}
       ARKIV_WORKERS: ${ARKIV_WORKERS:-2}

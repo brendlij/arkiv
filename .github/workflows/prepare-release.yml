@@ -1,0 +1,75 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version increment
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Update version and changelog
+        id: release
+        env:
+          BUMP: ${{ inputs.bump }}
+        shell: bash
+        run: |
+          version="$(node scripts/prepare-release.mjs "$BUMP")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create release branch and pull request
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          test -n "$GH_TOKEN" || {
+            echo "RELEASE_TOKEN repository secret is required" >&2
+            exit 1
+          }
+          branch="release/v$VERSION"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add CHANGELOG.md web/package.json web/package-lock.json
+          git commit -m "release: prepare v$VERSION"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "release: v$VERSION" \
+            --body "Automated release preparation for Arkiv v$VERSION."
