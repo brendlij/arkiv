@@ -12,7 +12,7 @@ These variables are interpreted by Compose, not by the server:
 | `ARKIV_PHOTOS_DIR` | `./photos`                      | Existing external photos on the Docker host; mounted read-only at `/photos`   |
 | `ARKIV_DATA_DIR`   | `./data`                        | Persistent database and uploaded originals; mounted at `/data`                |
 | `ARKIV_CACHE_DIR`  | `./cache`                       | Rebuildable derivatives; mounted at `/cache`                                  |
-| `ARKIV_HOST_PORT`  | `8090`                          | Port you open in the browser; mapped to container port 8080                   |
+| `ARKIV_HOST_PORT`  | `8090`                          | Port published on the Docker host; mapped to container port 8090              |
 | `TZ`               | `Europe/Berlin`                 | Container timezone, also used for image dates without an EXIF offset          |
 
 Relative host paths resolve relative to the Compose project. All three directories must already exist. The container uses UID/GID 10001:10001. Preserve the existing data path when upgrading.
@@ -25,7 +25,7 @@ Relative host paths resolve relative to the Compose project. All three directori
 | `ARKIV_CACHE`              | `/cache`                    | Absolute cache directory, separate from original libraries                                       |
 | `ARKIV_LIBRARY`            | `/photos`                   | Absolute root for a single external library                                                      |
 | `ARKIV_LIBRARIES`          | unset                       | JSON library array; overrides the single external root                                           |
-| `ARKIV_PORT`               | `8080`                      | Server listen port, 1–65535; also used by the health check                                       |
+| `ARKIV_PORT`               | `8090`                      | Server listen port, 1–65535; also used by the health check                                       |
 | `ARKIV_USERNAME`           | `admin`                     | First administrator username; bootstrap only                                                     |
 | `ARKIV_PASSWORD_HASH`      | required for password login | Argon2id hash from `arkiv hash-password`; bootstrap only, but must remain configured for startup |
 | `ARKIV_SCAN_ON_START`      | `true`                      | Scan external libraries at startup                                                               |

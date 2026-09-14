@@ -1787,7 +1787,8 @@ input {
 .arkiv-logo {
   width: 56px;
   height: 56px;
-  color: var(--accent);
+  display: block;
+  object-fit: contain;
   flex-shrink: 0;
 }
 .login-logo {
