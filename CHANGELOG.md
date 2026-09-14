@@ -4,6 +4,8 @@ All notable changes to Arkiv are documented here. This project follows [Semantic
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-14
+
 ### Added
 
 - Added an idempotent `arkiv migrate-uploads` command that copies and verifies legacy managed originals before switching storage roots.
