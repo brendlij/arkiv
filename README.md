@@ -1,4 +1,4 @@
-# arkiv
+    # arkiv
 
 <img src="web/public/brand/arkivlogotransparentbg.png" alt="Arkiv logo" width="180" />
 
@@ -22,7 +22,7 @@ arkiv is under active development. Current validation coverage and known limitat
 
 ## Docker deployment
 
-Requirements: Docker Engine with Compose v2, a photo directory, and writable data and cache directories.
+Requirements: Docker Engine with Compose v2 and writable photo, data and cache directories.
 
 ### Configuration
 
@@ -36,14 +36,14 @@ Example NAS configuration:
 
 ```dotenv
 ARKIV_IMAGE=ghcr.io/brendlij/arkiv:latest
-ARKIV_PHOTOS_DIR=/volume1/photos
+ARKIV_PHOTOS_DIR=/volume1/photos_arkiv
 ARKIV_DATA_DIR=/volume1/docker/arkiv/data
 ARKIV_CACHE_DIR=/volume1/docker/arkiv/cache
 ARKIV_HOST_PORT=8090
 TZ=Europe/Berlin
 ```
 
-The container runs as **UID/GID 10001:10001** and requires write access to the data and cache directories plus read and traverse access to the photo directory. Bind paths must exist before startup. The photo mount remains read-only.
+The container runs as **UID/GID 10001:10001**. `/photos`, `/data` and `/cache` must be writable by that identity; manually managed folders below `/photos` need at least read and traverse access. Bind paths must exist before startup. NAS ACLs can override ordinary `chmod` mode bits.
 
 The Compose file pulls `ghcr.io/brendlij/arkiv` and uses `/photos`, `/data` and `/cache` inside the container. Host paths are configured through `.env`. A numbered image tag such as `ghcr.io/brendlij/arkiv:0.2.0` provides reproducible deployments; `latest` tracks the newest release.
 
@@ -85,14 +85,22 @@ HTTPS reverse proxies require `ARKIV_SECURE_COOKIES=true`, preservation of the o
 
 ## Storage layout
 
-| Location in the container | Contents                                                        | Back up?        |
-| ------------------------- | --------------------------------------------------------------- | --------------- |
-| `/photos`                 | Existing external originals, mounted read-only                  | Yes, separately |
-| `/data/gallery.db`        | Users, permissions, albums, favorites, metadata and jobs        | Yes             |
-| `/data/uploads/`          | Uploaded originals, paused transfers and quarantine             | Yes             |
-| `/cache`                  | Rebuildable thumbnails, full-size renders and compatible videos | Optional        |
+Recommended NAS mapping:
 
-The database filename remains `gallery.db` for installation compatibility. Files inside `uploads/` are application-managed.
+| Host path                     | Container path | Purpose                        |
+| ----------------------------- | -------------- | ------------------------------ |
+| `/volume1/photos_arkiv`       | `/photos`      | Canonical writable originals   |
+| `/volume1/docker/arkiv/data`  | `/data`        | Database and application state |
+| `/volume1/docker/arkiv/cache` | `/cache`       | Disposable generated files     |
+
+| Location in the container | Contents                                                              | Back up?   |
+| ------------------------- | --------------------------------------------------------------------- | ---------- |
+| `/photos`                 | Canonical originals: manually copied files and Arkiv-managed uploads  | Yes        |
+| `/photos/originals`       | Arkiv-managed originals, resumable transfer parts and quarantine      | Yes        |
+| `/data/gallery.db`        | Users, permissions, albums, favorites, metadata, jobs and state       | Yes        |
+| `/cache`                  | Rebuildable thumbnails, full-size renders and compatible video copies | Usually no |
+
+The database filename remains `gallery.db` for installation compatibility. `/data` contains application state only. Arkiv generates collision-safe sharded names below `/photos/originals` and preserves the supplied filename in metadata. Treat `originals/` as Arkiv-managed; place manually copied folders elsewhere below `/photos`.
 
 **My library** contains managed uploads. **Photos** also includes shared media and accessible server libraries. Folder moves change organization in arkiv without changing external storage paths.
 
@@ -104,7 +112,7 @@ Uploads accept up to **50 files per batch**, **250 MiB per photo/RAW**, and **2 
 
 Supported extensions are listed in the upload dialog. Accepting a format does not guarantee that every camera variant or codec can be decoded by the installed media tools. Failed previews leave the original available for download.
 
-External libraries scan on startup and every 30 minutes by default; uploads are indexed immediately. **Processing** shows progress and failures and lets administrators retry work. External file renames are currently treated as removal plus new discovery, so album/favorite associations do not follow them.
+The primary `/photos` library scans on startup and every 30 minutes by default; uploads are indexed immediately and its managed `originals` subtree is excluded from the broad scan to prevent duplicate records. Common NAS folders such as `#recycle`, `@eaDir`, `.Trash`, `.Trashes`, `.recycle` and `lost+found` are ignored. Unreadable directories are skipped with a warning while other files continue scanning. Manual file renames are treated as removal plus new discovery, so album/favorite associations do not follow them.
 
 The viewer loads original images where the browser supports them. Full-size PNG conversion does not resize images; RAW development is not guaranteed to match another editor's colors. Compatible video conversion uses H.264/AAC and preserves resolution with possible one-pixel padding. It is not an original-quality replacement; original downloads remain available. Public-album playback retains its own access-controlled behavior.
 
@@ -112,15 +120,26 @@ Cache maintenance runs at startup and hourly. It removes obsolete generated file
 
 ## Backup and upgrades
 
-Backups must include the complete data directory and external originals. Stop arkiv before copying the data directory to keep SQLite and WAL files consistent:
+Backups must include both `/photos` and `/data`. Stop Arkiv before copying `/data` to keep SQLite and WAL files consistent. `/cache` is generated and normally does not need backup:
 
 ```sh
 docker compose stop arkiv
-# Back up ARKIV_DATA_DIR and the external photo library.
+# Back up ARKIV_PHOTOS_DIR and ARKIV_DATA_DIR.
 docker compose start arkiv
 ```
 
-Upgrade procedure:
+For installations created before uploads moved to `/photos/originals`, perform the one-time verified migration after updating `.env` and pulling the new image:
+
+```sh
+docker compose stop arkiv
+docker compose pull
+docker compose run --rm arkiv migrate-uploads
+docker compose up -d
+```
+
+The command copies and verifies all files from the legacy `/data/uploads` directory, including resumable transfers, before repointing the database. It never deletes the legacy files and is safe to run again. After verifying uploaded originals in Arkiv and confirming backups, the retained legacy directory can be archived or removed manually.
+
+Normal upgrade procedure after that migration:
 
 ```sh
 docker compose pull

@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { hashFile } from "../sha256";
 import { api, ApiError } from "../api";
-const props = defineProps<{ folder?: string }>();
+const props = withDefaults(
+  defineProps<{ folder?: string; showTrigger?: boolean }>(),
+  { showTrigger: true },
+);
 const destination = ref("");
 const destinations = ref<string[]>([]);
 type UploadOptions = {
@@ -36,7 +39,8 @@ const formatGroups = computed(() =>
 );
 async function open() {
   if (!items.value.length) destination.value = props.folder || "";
-  dialog.value?.showModal();
+  minimized.value = false;
+  if (!dialog.value?.open) dialog.value?.showModal();
   optionsLoading.value = true;
   optionsError.value = "";
   try {
@@ -59,6 +63,7 @@ const dialog = ref<HTMLDialogElement>();
 const picker = ref<HTMLInputElement>();
 const dragging = ref(false);
 const busy = ref(false);
+const minimized = ref(false);
 
 type Session = {
   id: string;
@@ -88,6 +93,27 @@ const items = ref<Item[]>([]),
 let active: XMLHttpRequest | undefined;
 let activeRequest: AbortController | undefined;
 let cancelled = false;
+const completedCount = computed(
+  () =>
+    items.value.filter((item) =>
+      ["Saved", "Already uploaded"].includes(item.status),
+    ).length,
+);
+const overallProgress = computed(() => {
+  const total = items.value.reduce((sum, item) => sum + item.file.size, 0);
+  if (!total) return 0;
+  const completed = items.value.reduce(
+    (sum, item) => sum + item.file.size * (item.progress / 100),
+    0,
+  );
+  return Math.round((completed / total) * 100);
+});
+const currentItem = computed(() =>
+  items.value.find(
+    (item) =>
+      !["Ready", "Saved", "Already uploaded", "Paused"].includes(item.status),
+  ),
+);
 function bytes(n: number) {
   return `${(n / 1073741824).toFixed(2)} GiB`;
 }
@@ -95,6 +121,10 @@ function stop() {
   cancelled = true;
   active?.abort();
   activeRequest?.abort();
+}
+function minimize() {
+  minimized.value = items.value.length > 0;
+  dialog.value?.close();
 }
 onUnmounted(stop);
 async function refreshPending() {
@@ -266,6 +296,8 @@ async function upload() {
   busy.value = true;
   cancelled = false;
   optionsError.value = "";
+  await nextTick();
+  dialog.value?.scrollTo({ top: 0 });
   for (const item of items.value) {
     if (cancelled) break;
     if (item.status === "Saved" || item.status === "Already uploaded") continue;
@@ -424,6 +456,7 @@ async function upload() {
     items.value.every((item) => item.status === "Saved")
   ) {
     const count = items.value.length;
+    minimized.value = false;
     dialog.value?.close();
     items.value = [];
     if (picker.value) picker.value.value = "";
@@ -432,26 +465,55 @@ async function upload() {
 }
 </script>
 <template>
-  <button class="primary upload-trigger" @click="open">Upload</button>
+  <button v-if="showTrigger" class="primary upload-trigger" @click="open">
+    Upload
+  </button>
   <Teleport to="body"
     ><dialog
       ref="dialog"
       class="upload-dialog"
       aria-labelledby="upload-title"
-      @cancel="stop"
-      @close="stop"
+      @cancel.prevent="minimize"
     >
       <header>
         <h2 id="upload-title">Add photos & videos</h2>
         <button
           class="icon-button"
-          aria-label="Close upload"
-          @click="dialog?.close()"
+          :aria-label="items.length ? 'Minimize upload' : 'Close upload'"
+          :title="items.length ? 'Minimize' : 'Close'"
+          @click="minimize"
         >
           ×
         </button>
       </header>
+      <section v-if="items.length" class="upload-overall" aria-live="polite">
+        <div>
+          <strong>{{ completedCount }} of {{ items.length }} files saved</strong
+          ><span>{{ overallProgress }}%</span>
+        </div>
+        <progress
+          :value="overallProgress"
+          max="100"
+          aria-label="Overall upload progress"
+        />
+        <p v-if="busy">
+          {{ currentItem?.status || "Preparing"
+          }}<template v-if="currentItem">
+            · {{ currentItem.file.name }}</template
+          >
+        </p>
+        <p v-else>Ready to upload. Files are sent one at a time.</p>
+        <small>
+          Saving to {{ destination || "My uploads" }}. Originals remain
+          unchanged; Arkiv prepares previews and metadata after saving.
+        </small>
+        <small v-if="busy"
+          >You can minimize this window. Uploads continue while this Arkiv tab
+          remains open.</small
+        >
+      </section>
       <button
+        v-if="!busy"
         class="upload-drop"
         :class="{ dragging }"
         :disabled="busy || optionsLoading || !!optionsError"
@@ -493,10 +555,10 @@ async function upload() {
         hidden
         @change="add(($event.target as HTMLInputElement).files)"
       />
-      <p class="upload-help">
+      <p v-if="!busy" class="upload-help">
         Up to 50 files · Photos up to 250 MiB · Videos up to 2 GiB
       </p>
-      <div class="upload-destination">
+      <div v-if="!busy" class="upload-destination">
         <label for="upload-folder">Save to folder</label>
         <input
           id="upload-folder"
@@ -526,17 +588,21 @@ async function upload() {
           >{{
             bytes(Math.max(0, options.quota - options.used - options.reserved))
           }}
-          available</span
+          account upload quota remaining</span
         >
-        <small>of {{ bytes(options.quota) }}</small>
+        <small
+          >{{ bytes(options.used) }} used ·
+          {{ bytes(options.reserved) }} reserved ·
+          {{ bytes(options.quota) }} limit</small
+        >
         <progress
           :value="Math.min(options.quota, options.used + options.reserved)"
           :max="options.quota || 1"
-          aria-label="Storage used and reserved"
+          aria-label="Account upload quota used and reserved"
         />
       </div>
       <section
-        v-if="pending.length"
+        v-if="pending.length && !busy"
         class="pending-uploads"
         aria-label="Paused uploads"
       >
@@ -579,7 +645,7 @@ async function upload() {
         {{ optionsError }} <button class="button" @click="open">Retry</button>
       </p>
       <p v-if="selectionNotice" role="status">{{ selectionNotice }}</p>
-      <details class="upload-options">
+      <details v-if="!busy" class="upload-options">
         <summary>More options & file types</summary>
         <div class="upload-options-body">
           <label for="upload-duplicates">If a file is already uploaded</label>
@@ -613,7 +679,7 @@ async function upload() {
           </details>
         </div>
       </details>
-      <p v-if="items.length" class="upload-selection-count">
+      <p v-if="items.length && !busy" class="upload-selection-count">
         {{ items.length }} file{{ items.length === 1 ? "" : "s" }} selected
       </p>
       <ul v-if="items.length" class="upload-list">
@@ -636,8 +702,8 @@ async function upload() {
         Files saved. Previews and metadata are being prepared.
       </p>
       <footer>
-        <button v-if="!busy" class="upload-cancel" @click="dialog?.close()">
-          Cancel
+        <button class="upload-cancel" @click="minimize">
+          {{ items.length ? "Minimize" : "Close" }}
         </button>
         <button v-if="busy" class="button" @click="stop">Pause uploads</button
         ><button
@@ -663,7 +729,36 @@ async function upload() {
           }}
         </button>
       </footer>
-    </dialog></Teleport
+    </dialog>
+    <aside
+      v-if="minimized && items.length"
+      class="upload-progress-panel"
+      aria-live="polite"
+      aria-label="Upload progress"
+    >
+      <div class="upload-progress-heading">
+        <div>
+          <strong>{{ busy ? "Uploading" : "Uploads paused" }}</strong>
+          <span>{{ overallProgress }}%</span>
+        </div>
+        <button
+          class="icon-button"
+          aria-label="Open upload details"
+          @click="open"
+        >
+          ↗
+        </button>
+      </div>
+      <progress :value="overallProgress" max="100" />
+      <p>{{ completedCount }} of {{ items.length }} files saved</p>
+      <small v-if="currentItem"
+        >{{ currentItem.status }} · {{ currentItem.file.name }}</small
+      >
+      <div class="upload-progress-actions">
+        <button class="button" @click="open">Open details</button>
+        <button v-if="busy" class="text-button" @click="stop">Pause</button>
+      </div>
+    </aside></Teleport
   >
 </template>
 
@@ -797,12 +892,77 @@ async function upload() {
 .upload-selection-count {
   font-weight: 600;
 }
+.upload-overall {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.upload-overall > div,
+.upload-progress-heading,
+.upload-progress-heading > div,
+.upload-progress-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.upload-overall progress,
+.upload-progress-panel progress {
+  width: 100%;
+  height: 7px;
+  accent-color: var(--accent);
+}
+.upload-overall p,
+.upload-overall small {
+  margin: 0;
+}
+.upload-overall small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.upload-progress-panel {
+  position: fixed;
+  z-index: 1000;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  gap: 10px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 48px #0000002e;
+}
+.upload-progress-heading > div {
+  flex: 1;
+}
+.upload-progress-panel p,
+.upload-progress-panel small {
+  margin: 0;
+}
+.upload-progress-panel small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.upload-progress-actions {
+  justify-content: flex-start;
+  margin-top: 2px;
+}
 @media (max-width: 600px) {
   .upload-dialog {
     padding: 20px;
   }
   .upload-dialog footer {
     bottom: -20px;
+  }
+  .upload-progress-panel {
+    top: 12px;
+    right: 12px;
   }
 }
 

@@ -13,6 +13,7 @@ import (
 	"gallery/internal/metadata"
 	"gallery/internal/places"
 	"gallery/internal/scanner"
+	"gallery/internal/storage"
 	"gallery/web"
 	"log/slog"
 	"net"
@@ -46,6 +47,13 @@ func main() {
 		fmt.Println(hash)
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrate-uploads" {
+		if e := migrateUploads(); e != nil {
+			fmt.Fprintln(os.Stderr, e)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		c := http.Client{Timeout: 3 * time.Second}
 		port := config.HTTPPort()
@@ -64,6 +72,21 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+func migrateUploads() error {
+	c, err := config.Load()
+	if err != nil {
+		return err
+	}
+	db, err := database.Open(c.Database)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = storage.MigrateUploads(context.Background(), db, c.LegacyUploads, c.Uploads)
+	return err
+}
+
 func run() error {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	c, e := config.Load()
@@ -96,6 +119,9 @@ func serve(parent context.Context, c config.Config, listener net.Listener) error
 		return e
 	}
 	defer db.Close()
+	if e = storage.RequireCurrentUploadsRoot(ctx, db, c.LegacyUploads, c.Uploads); e != nil {
+		return e
+	}
 	if e = library.Sync(ctx, db, c.Libraries); e != nil {
 		return e
 	}
@@ -112,7 +138,7 @@ func serve(parent context.Context, c config.Config, listener net.Listener) error
 			scanLibraries = append(scanLibraries, l)
 		}
 	}
-	scan := &scanner.Scanner{DB: db, Libraries: scanLibraries}
+	scan := &scanner.Scanner{DB: db, Libraries: scanLibraries, ExcludedRoots: []string{c.Uploads}}
 	requests := make(chan struct{}, 1)
 	requestScan := func() bool {
 		if scan.Running.Load() {

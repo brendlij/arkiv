@@ -4,6 +4,19 @@ All notable changes to Arkiv are documented here. This project follows [Semantic
 
 ## [Unreleased]
 
+### Added
+
+- Added an idempotent `arkiv migrate-uploads` command that copies and verifies legacy managed originals before switching storage roots.
+
+### Changed
+
+- Made `/photos` the writable canonical original store and moved new managed uploads to configurable, sharded paths below `/photos/originals`.
+- Clarified account upload quotas separately from physical NAS capacity.
+
+### Fixed
+
+- Prevented scans from failing on unreadable directories or indexing protected NAS folders and managed uploads twice.
+
 ## [0.1.1] - 2026-09-14
 
 ### Added

@@ -12,13 +12,20 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestUploadIsolationAndValidation(t *testing.T) {
-	db, e := database.Open(filepath.Join(t.TempDir(), "test.db"))
+	base := t.TempDir()
+	dataRoot := filepath.Join(base, "data")
+	root := filepath.Join(base, "photos", "originals")
+	if e := os.MkdirAll(root, 0700); e != nil {
+		t.Fatal(e)
+	}
+	db, e := database.Open(filepath.Join(dataRoot, "test.db"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -26,7 +33,6 @@ func TestUploadIsolationAndValidation(t *testing.T) {
 	if e = auth.Bootstrap(db, config.Config{Username: "admin"}); e != nil {
 		t.Fatal(e)
 	}
-	root := t.TempDir()
 	db.Exec("INSERT INTO libraries VALUES('arkiv-uploads','Uploads',?,1)", root)
 	db.Exec("INSERT INTO users(username,display_name,password_hash,role) VALUES('alice','Alice','','member'),('bob','Bob','','member')")
 	mux := http.NewServeMux()
@@ -94,6 +100,25 @@ func TestUploadIsolationAndValidation(t *testing.T) {
 	}
 	if savedFolder != "user-2/Holidays/Summer" || !strings.HasPrefix(storedPath, "user-2/") || strings.Contains(storedPath, "Holidays") {
 		t.Fatal("upload destination altered immutable storage or was ignored")
+	}
+	parts := strings.Split(filepath.ToSlash(storedPath), "/")
+	if len(parts) != 4 || len(parts[1]) != 2 || len(parts[2]) != 2 {
+		t.Fatalf("original path is not sharded: %s", storedPath)
+	}
+	if _, e = os.Stat(filepath.Join(root, filepath.FromSlash(storedPath))); e != nil {
+		t.Fatalf("original missing from configured photo storage: %v", e)
+	}
+	if e = filepath.WalkDir(dataRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		switch strings.ToLower(filepath.Ext(entry.Name())) {
+		case ".png", ".jpg", ".mp4", ".dng":
+			t.Fatalf("original written below data directory: %s", path)
+		}
+		return nil
+	}); e != nil {
+		t.Fatal(e)
 	}
 	db.QueryRow("SELECT count(*) FROM managed_folders WHERE owner_id=2").Scan(&count)
 	if count != 3 {

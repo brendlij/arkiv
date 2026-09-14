@@ -373,7 +373,7 @@ onUnmounted(() => moreObserver?.disconnect());
           </div>
           <div class="heading-actions">
             <PhotoUpload
-              v-if="!['Trash', 'Processing'].includes(view)"
+              :show-trigger="!['Trash', 'Processing'].includes(view)"
               :folder="
                 library === 'arkiv-uploads' &&
                 folder.startsWith(`user-${currentUser?.id}/`)

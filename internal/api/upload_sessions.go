@@ -423,7 +423,7 @@ func (s *Server) finishUpload(ctx context.Context, v uploadRecord) (uploadRecord
 	defer root.Close()
 	ext := strings.ToLower(filepath.Ext(v.Filename))
 	temp := ".incoming/" + v.ID + ".part"
-	dest := fmt.Sprintf("user-%d/%s%s", v.Owner, v.ID, ext)
+	dest := managedOriginalPath(v.Owner, v.ID, ext)
 	filePath := temp
 	if v.State == "committing" {
 		if _, e = root.Stat(dest); e == nil {
@@ -478,7 +478,7 @@ func (s *Server) finishUpload(ctx context.Context, v uploadRecord) (uploadRecord
 	}
 	// The durable committing record protects renamed bytes across a process crash.
 	if filePath == temp {
-		if e = root.MkdirAll(fmt.Sprintf("user-%d", v.Owner), 0700); e != nil {
+		if e = root.MkdirAll(filepath.Dir(dest), 0700); e != nil {
 			return v, e
 		}
 		if e = root.Rename(temp, dest); e != nil {

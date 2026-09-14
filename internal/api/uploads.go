@@ -21,6 +21,10 @@ var uploadLock sync.Mutex
 const uploadLimit = media.VideoUploadLimit
 const uploadQuota = media.UploadQuota
 
+func managedOriginalPath(owner int64, id, ext string) string {
+	return fmt.Sprintf("user-%d/%s/%s/%s%s", owner, id[:2], id[2:4], id, ext)
+}
+
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	u := access.Current(r)
 	if u.ID < 1 || u.PublicAlbum != 0 {
@@ -91,7 +95,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	token := fmt.Sprintf("%x", rand.Text())
 	temp := folder + "/" + token + ".partial"
-	dest := folder + "/" + token + ext
+	dest := managedOriginalPath(u.ID, token, ext)
 	f, e := root.OpenFile(temp, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
 	if e != nil {
 		s.fail(w, e)
@@ -128,6 +132,10 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e = f.Close(); e != nil {
+		s.fail(w, e)
+		return
+	}
+	if e = root.MkdirAll(filepath.Dir(dest), 0700); e != nil {
 		s.fail(w, e)
 		return
 	}

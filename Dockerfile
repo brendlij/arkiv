@@ -21,7 +21,7 @@ RUN ARKIV_INTEGRATION=1 go test ./...
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends libvips-tools ffmpeg libimage-exiftool-perl ca-certificates tzdata && rm -rf /var/lib/apt/lists/* \
     && groupadd -g 10001 arkiv && useradd -u 10001 -g arkiv -M arkiv \
-    && mkdir /data /cache && chown arkiv:arkiv /data /cache
+    && mkdir /photos /data /cache && chown arkiv:arkiv /photos /data /cache
 COPY --from=backend /arkiv /usr/local/bin/arkiv
 RUN ln -s /usr/local/bin/arkiv /usr/local/bin/gallery
 USER 10001:10001

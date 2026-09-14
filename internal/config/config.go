@@ -20,7 +20,7 @@ type Library struct {
 type Config struct {
 	Database, Cache, Port, Username, PasswordHash string
 	Libraries                                     []Library
-	Uploads                                       string
+	Uploads, LegacyUploads                        string
 	UploadQuota                                   int64
 	UploadRetention                               time.Duration
 	ScanOnStart, SecureCookies, TrustProxy        bool
@@ -70,7 +70,8 @@ func Load() (Config, error) {
 	} else {
 		c.Libraries = []Library{{ID: "photos", Name: "Photos", Root: env("ARKIV_LIBRARY", "/photos"), Enabled: true}}
 	}
-	c.Uploads = filepath.Join(filepath.Dir(c.Database), "uploads")
+	c.Uploads = env("ARKIV_UPLOAD_DIR", "/photos/originals")
+	c.LegacyUploads = filepath.Join(filepath.Dir(c.Database), "uploads")
 	c.Libraries = append(c.Libraries, Library{ID: "arkiv-uploads", Name: "Uploads", Root: c.Uploads, Enabled: true})
 	seen := map[string]bool{}
 	for i := range c.Libraries {
@@ -108,10 +109,7 @@ func Load() (Config, error) {
 	}
 	for i, l := range c.Libraries {
 		for _, other := range c.Libraries[i+1:] {
-			if rel, e := filepath.Rel(l.Root, other.Root); e == nil && filepath.IsLocal(rel) {
-				return c, fmt.Errorf("library roots must not overlap")
-			}
-			if rel, e := filepath.Rel(other.Root, l.Root); e == nil && filepath.IsLocal(rel) {
+			if rootsOverlap(l.Root, other.Root) && !managedUploadNesting(l, other) {
 				return c, fmt.Errorf("library roots must not overlap")
 			}
 		}
@@ -134,6 +132,26 @@ func Load() (Config, error) {
 	return c, nil
 }
 func hasParent(s string) bool { return len(s) > 3 && s[:3] == ".."+string(filepath.Separator) }
+
+func rootsOverlap(a, b string) bool {
+	for _, pair := range [][2]string{{a, b}, {b, a}} {
+		if rel, e := filepath.Rel(pair[0], pair[1]); e == nil && filepath.IsLocal(rel) {
+			return true
+		}
+	}
+	return false
+}
+
+func managedUploadNesting(a, b Library) bool {
+	if a.ID == "arkiv-uploads" {
+		a, b = b, a
+	}
+	if b.ID != "arkiv-uploads" {
+		return false
+	}
+	rel, e := filepath.Rel(a.Root, b.Root)
+	return e == nil && rel != "." && filepath.IsLocal(rel)
+}
 
 func env(k, d string) string {
 	if v := os.Getenv(k); v != "" {
