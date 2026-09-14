@@ -13,6 +13,7 @@ services:
       ARKIV_DATABASE: /data/gallery.db
       ARKIV_CACHE: /cache
       ARKIV_LIBRARY: /photos
+      ARKIV_UPLOAD_DIR: ${ARKIV_UPLOAD_DIR:-/photos/originals}
       ARKIV_PORT: "8090"
       ARKIV_SCAN_ON_START: ${ARKIV_SCAN_ON_START:-true}
       ARKIV_SCAN_INTERVAL: ${ARKIV_SCAN_INTERVAL:-30m}
@@ -24,7 +25,6 @@ services:
       - type: bind
         source: ${ARKIV_PHOTOS_DIR:-./photos}
         target: /photos
-        read_only: true
         bind:
           create_host_path: false
       - type: bind

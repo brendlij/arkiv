@@ -167,7 +167,10 @@ func TestResumableUploadRecoveryIsolationAndQuota(t *testing.T) {
 	recoverable := start(2, "h", true, digest, 200)
 	req(2, "PATCH", "/api/uploads/sessions/"+recoverable.ID, data, 0, 200)
 	db.Exec("UPDATE upload_sessions SET state='committing' WHERE id=?", recoverable.ID)
-	final := filepath.Join(root, "user-2", recoverable.ID+".png")
+	final := filepath.Join(root, filepath.FromSlash(managedOriginalPath(2, recoverable.ID, ".png")))
+	if e = os.MkdirAll(filepath.Dir(final), 0700); e != nil {
+		t.Fatal(e)
+	}
 	if e = os.Rename(filepath.Join(root, ".incoming", recoverable.ID+".part"), final); e != nil {
 		t.Fatal(e)
 	}

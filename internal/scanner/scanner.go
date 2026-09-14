@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"gallery/internal/config"
 	"gallery/internal/media"
@@ -21,6 +22,7 @@ import (
 type Scanner struct {
 	DB            *sql.DB
 	Libraries     []config.Library
+	ExcludedRoots []string
 	Running       atomic.Bool
 	Examined      atomic.Int64
 	mu            sync.RWMutex
@@ -96,7 +98,7 @@ func (s *Scanner) scanRoot(ctx context.Context, l config.Library) (Result, error
 		return result, e
 	}
 	token := hex.EncodeToString(tokenBytes)
-	var walkFailure error
+	hadPermissionError := false
 	type entry struct {
 		path string
 		info os.FileInfo
@@ -133,9 +135,13 @@ func (s *Scanner) scanRoot(ctx context.Context, l config.Library) (Result, error
 			return e
 		}
 		if walkErr != nil {
-			walkFailure = walkErr
-			slog.Warn("cannot read path", "path", p, "error", walkErr)
-			return nil
+			if errors.Is(walkErr, fs.ErrPermission) {
+				hadPermissionError = true
+			}
+			return handleWalkError(p, walkErr)
+		}
+		if d.IsDir() && p != l.Root && (ignoredDirectory(d.Name()) || s.excludedRoot(p)) {
+			return filepath.SkipDir
 		}
 		if d.IsDir() || d.Type()&os.ModeSymlink != 0 {
 			return nil
@@ -146,8 +152,10 @@ func (s *Scanner) scanRoot(ctx context.Context, l config.Library) (Result, error
 		}
 		info, e := d.Info()
 		if e != nil {
-			walkFailure = e
-			return nil
+			if errors.Is(e, fs.ErrPermission) {
+				hadPermissionError = true
+			}
+			return handleWalkError(p, e)
 		}
 		if !info.Mode().IsRegular() {
 			return nil
@@ -165,13 +173,15 @@ func (s *Scanner) scanRoot(ctx context.Context, l config.Library) (Result, error
 	if e = flush(); e != nil {
 		return result, e
 	}
-	if walkFailure != nil {
-		return result, walkFailure
-	}
 	// A changed/unmounted root must never cause mass deletion during reconciliation.
 	after, e := os.Stat(l.Root)
 	if e != nil || !os.SameFile(info, after) {
 		return result, fmt.Errorf("library root changed during scan")
+	}
+	if hadPermissionError {
+		slog.Warn("library scan skipped removal reconciliation because paths were unreadable", "library", l.ID)
+		slog.Info("library scan completed with unreadable paths", "library", l.ID, "discovered", result.Discovered, "updated", result.Updated, "elapsed", time.Since(start))
+		return result, nil
 	}
 	r, e := s.DB.ExecContext(ctx, "DELETE FROM assets WHERE library_id=? AND seen_scan<>?", l.ID, token)
 	if e != nil {
@@ -180,6 +190,33 @@ func (s *Scanner) scanRoot(ctx context.Context, l config.Library) (Result, error
 	result.Removed, e = r.RowsAffected()
 	slog.Info("library scan completed", "library", l.ID, "discovered", result.Discovered, "updated", result.Updated, "removed", result.Removed, "elapsed", time.Since(start))
 	return result, e
+}
+
+func (s *Scanner) excludedRoot(path string) bool {
+	path = filepath.Clean(path)
+	for _, root := range s.ExcludedRoots {
+		if strings.EqualFold(path, filepath.Clean(root)) {
+			return true
+		}
+	}
+	return false
+}
+
+func handleWalkError(path string, err error) error {
+	if errors.Is(err, fs.ErrPermission) {
+		slog.Warn("skipping unreadable path", "path", path, "error", err)
+		return nil
+	}
+	return err
+}
+
+func ignoredDirectory(name string) bool {
+	switch strings.ToLower(name) {
+	case "#recycle", "@eadir", ".trash", ".trashes", ".recycle", "lost+found":
+		return true
+	default:
+		return false
+	}
 }
 
 func indexFile(ctx context.Context, tx *sql.Tx, l config.Library, token, path string, info os.FileInfo) (int, int, error) {

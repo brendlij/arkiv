@@ -222,7 +222,7 @@ onMounted(() =>
           />Account enabled</label
         ><button class="button" :disabled="busy">Save account</button>
       </form>
-      <h3>Upload storage</h3>
+      <h3>Account upload quota</h3>
       <p v-if="storage">
         {{ (storage.used / 1073741824).toFixed(2) }} GiB used +
         {{ (storage.reserved / 1073741824).toFixed(2) }} GiB reserved /
@@ -237,14 +237,14 @@ onMounted(() =>
             max="1048576"
             step="0.01"
             required /></label
-        ><button class="button" :disabled="busy">Save storage limit</button>
+        ><button class="button" :disabled="busy">Save account quota</button>
       </form>
       <h3>Assigned folders</h3>
       <p>
         {{
           selected.role === "admin"
             ? "Administrators already have access to every configured library."
-            : "Access includes all subfolders. Originals remain read-only."
+            : "Access includes all subfolders. Assigned server libraries remain read-only."
         }}
       </p>
       <div v-for="g in grants" :key="g.id" class="grant-row">

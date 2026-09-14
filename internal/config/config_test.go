@@ -10,11 +10,14 @@ func TestValidation(t *testing.T) {
 	t.Setenv("ARKIV_DATABASE", filepath.Join(base, "data", "gallery.db"))
 	t.Setenv("ARKIV_CACHE", filepath.Join(base, "cache"))
 	t.Setenv("ARKIV_LIBRARY", filepath.Join(base, "photos"))
+	t.Setenv("ARKIV_UPLOAD_DIR", filepath.Join(base, "photos", "originals"))
 	t.Setenv("ARKIV_LIBRARIES", "")
 	t.Setenv("ARKIV_PASSWORD_HASH", "test")
 	t.Setenv("ARKIV_TRUST_PROXY_AUTH", "false")
-	if _, e := Load(); e != nil {
+	if current, e := Load(); e != nil {
 		t.Fatal(e)
+	} else if current.Uploads != filepath.Join(base, "photos", "originals") || current.LegacyUploads != filepath.Join(base, "data", "uploads") {
+		t.Fatal("upload storage paths not configured")
 	}
 	t.Setenv("ARKIV_UPLOAD_QUOTA_BYTES", "0")
 	if _, e := Load(); e == nil {
@@ -49,6 +52,7 @@ func TestArkivEnvironment(t *testing.T) {
 	base := t.TempDir()
 	t.Setenv("ARKIV_CACHE", filepath.Join(base, "cache"))
 	t.Setenv("ARKIV_LIBRARY", filepath.Join(base, "photos"))
+	t.Setenv("ARKIV_UPLOAD_DIR", filepath.Join(base, "photos", "originals"))
 	t.Setenv("ARKIV_PASSWORD_HASH", "arkiv-hash")
 	t.Setenv("ARKIV_PORT", "8096")
 	t.Setenv("ARKIV_DATABASE", filepath.Join(base, "data", "gallery.db"))
