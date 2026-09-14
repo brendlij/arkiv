@@ -13,18 +13,20 @@ Configure the `main` branch protection rule to require pull requests, one approv
 
 ## Prepare a release pull request
 
-Start from an up-to-date `main` branch:
+Open **Actions → Prepare release → Run workflow** on GitHub and select `patch`, `minor`, or `major`. The workflow calculates the next version, updates `web/package.json` and its lock file, moves the `Unreleased` changelog entries into a dated release section, creates `release/vX.Y.Z`, and opens a pull request.
+
+Create a fine-grained personal access token with repository **Contents: Read and write** and **Pull requests: Read and write** permissions, then save it as the repository Actions secret `RELEASE_TOKEN`. The dedicated token allows the generated branch and pull request to trigger the normal CI workflows.
+
+The equivalent local command is:
 
 ```sh
 git switch main
 git pull --ff-only
-git switch -c release/v0.2.0
-npm --prefix web version 0.2.0 --no-git-tag-version
+version="$(node scripts/prepare-release.mjs minor)"
+git switch -c "release/v$version"
 ```
 
-Move the relevant entries from `Unreleased` into a dated `## [0.2.0] - YYYY-MM-DD` section in `CHANGELOG.md`. Keep an empty `Unreleased` section for future work. Group entries under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, or `Security`; describe user impact rather than commit history.
-
-Commit and open the release PR:
+For local preparation, create the branch matching the version printed by the script, commit the generated files, and open the pull request. Normally the GitHub action performs these steps.
 
 ```sh
 git add CHANGELOG.md web/package.json web/package-lock.json
@@ -37,16 +39,7 @@ The release-PR workflow checks the branch name, package version, dated changelog
 
 ## Tag and publish
 
-After the release PR is approved and merged, tag the merge commit from an updated `main` branch:
-
-```sh
-git switch main
-git pull --ff-only
-git tag -a v0.2.0 -m "Arkiv v0.2.0"
-git push origin v0.2.0
-```
-
-The tag workflow verifies that the tag is on `main` and matches both `web/package.json` and `CHANGELOG.md`. It runs the build and tests, publishes `linux/amd64` and `linux/arm64` images, and creates a GitHub Release using the curated changelog section.
+Merging the release PR into `main` starts publication automatically. The workflow verifies the package version and changelog, runs the build and tests, publishes `linux/amd64` and `linux/arm64` images, creates the annotated `vX.Y.Z` tag, and creates a GitHub Release from the curated changelog section. A manually pushed matching tag can still restart publication recovery.
 
 Published image tags are:
 
