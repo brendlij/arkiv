@@ -1,0 +1,7 @@
+CREATE TABLE video_jobs (
+ asset_id INTEGER PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+ generation INTEGER NOT NULL,
+ state TEXT NOT NULL DEFAULT 'pending',
+ progress INTEGER NOT NULL DEFAULT 0,
+ error TEXT NOT NULL DEFAULT ''
+);

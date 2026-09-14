@@ -1,0 +1,9 @@
+CREATE TABLE personal_trash (
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+ dismissed INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(user_id,asset_id)
+);
+CREATE TABLE media_deletions (
+ asset_id INTEGER PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE
+);

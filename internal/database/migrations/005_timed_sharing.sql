@@ -1,0 +1,10 @@
+ALTER TABLE album_members ADD COLUMN starts_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE album_members ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE album_public_shares (
+ album_id INTEGER PRIMARY KEY REFERENCES albums(id) ON DELETE CASCADE,
+ token_hash TEXT NOT NULL UNIQUE,
+ starts_at INTEGER NOT NULL DEFAULT 0,
+ expires_at INTEGER NOT NULL DEFAULT 0,
+ allow_downloads INTEGER NOT NULL DEFAULT 0,
+ created_at INTEGER NOT NULL
+);

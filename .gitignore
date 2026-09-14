@@ -1,0 +1,31 @@
+# Local configuration and secrets
+/.env
+/.env.*
+!/.env.example
+
+# Runtime data and user libraries
+/data/
+/cache/
+/photos/
+*.db
+*.db-shm
+*.db-wal
+
+# Build and test output
+/arkiv
+/arkiv.exe
+/gallery
+/gallery.exe
+/test-results/
+/.build-cache/
+/web/node_modules/
+/web/dist/*
+!/web/dist/.gitkeep
+coverage.out
+*.log
+
+# Editor and operating-system files
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db

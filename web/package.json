@@ -1,0 +1,28 @@
+{
+  "name": "gallery-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vue-tsc --noEmit && vite build",
+    "format": "prettier --write src vite.config.ts",
+    "format:check": "prettier --check src vite.config.ts",
+    "test": "node tests/gallery-loading.test.mjs",
+    "test:touch": "node tests/touch-selection.test.mjs",
+    "test:viewer": "node tests/viewer-gestures.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/geist": "^5.3.0",
+    "leaflet": "^1.9.4",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.21",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "prettier": "^3.9.6",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.0",
+    "vue-tsc": "^3.0.0"
+  }
+}

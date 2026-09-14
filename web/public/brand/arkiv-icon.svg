@@ -1,0 +1,40 @@
+<svg style="color:#173F38"
+  width="256"
+  height="256"
+  viewBox="0 0 256 256"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <g
+    stroke="currentColor"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect x="75" y="42" width="118" height="92" rx="14" />
+    <rect x="62" y="58" width="118" height="92" rx="14" />
+    <rect x="49" y="75" width="118" height="92" rx="14" />
+
+    <circle
+      cx="82"
+      cy="106"
+      r="10"
+      fill="currentColor"
+      stroke="none"
+    />
+
+    <path d="M61 154L94 126L116 143L139 116L158 133" />
+
+    <path
+      d="M38 151L58 133V159H167V133L188 151V198C188 207.941 179.941 216 170 216H56C46.059 216 38 207.941 38 198V151Z"
+      fill="currentColor"
+      stroke="currentColor"
+    />
+
+    <path
+      d="M91 184H136"
+      stroke="#F4F1E8"
+      stroke-width="9"
+    />
+  </g>
+</svg>
