@@ -1,4 +1,4 @@
-    # arkiv
+# arkiv
 
 <img src="web/public/brand/arkivlogotransparentbg.png" alt="Arkiv logo" width="180" />
 
